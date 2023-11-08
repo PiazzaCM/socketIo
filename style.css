@@ -1,0 +1,37 @@
+.container {
+    box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.25);
+    border-radius: 10px;
+  }
+
+  form {
+    width: 100%;
+  }
+
+  #chat {
+    min-height: 63vh;
+    max-height: 63vh;
+    overflow-y: scroll;
+    padding: 1%;
+  }
+
+  #other {
+    background-color: #b700ff;
+    color: white;
+    border-radius: 15px 15px 15px 0;
+    padding: 10px;
+    margin: 10px 0;
+    text-align: start;
+    clear: both;
+    float: left;
+  }
+
+  #user {
+    background-color: #007bff;
+    color: white;
+    border-radius: 15px 15px 0 15px;
+    padding: 10px;
+    margin: 10px 0;
+    text-align: left;
+    clear: both;
+    float: right;
+  }

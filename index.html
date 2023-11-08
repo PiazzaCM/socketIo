@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    />
+    <style>
+      .container {
+        box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.25);
+        border-radius: 10px;
+      }
+
+      form {
+        width: 100%;
+      }
+
+      #chat {
+        min-height: 63vh;
+        max-height: 63vh;
+        overflow-y: scroll;
+        padding: 1%;
+      }
+
+      #other {
+        background-color: #b700ff;
+        color: white;
+        border-radius: 15px 15px 15px 0;
+        padding: 10px;
+        margin: 10px 0;
+        text-align: start;
+        clear: both;
+        float: left;
+      }
+
+      #user {
+        background-color: #007bff;
+        color: white;
+        border-radius: 15px 15px 0 15px;
+        padding: 10px;
+        margin: 10px 0;
+        text-align: left;
+        clear: both;
+        float: right;
+      }
+    </style>
+    <title>Mensajes</title>
+  </head>
+
+  <body>
+    <div class="container h-100 mt-5">
+      <div
+        class="row h-100 justify-content-center align-items-center"
+        id="content"
+      ></div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      //Conexion al socket del backend
+      const socket = io();
+
+      //Contenido del chat
+      const contenido = `<div class="col-12 col-md-9 box">
+                    <div class="container-chat">
+                        <h2 class="mt-4 text-center">Chat grupal</h2>
+                        <hr class="divider" />
+                        <div class="col-12 contenido">
+                            <div id="chat">
+                            </div>
+                            <div id="typingUser"></div>
+                        </div>
+                        <hr class="divider" />
+    
+                        <div class="col-12 d-flex flex-column align-items-end">   
+                            <div class="col-12 d-flex mb-5">
+                                <form id="form" onsubmit="sendMessage(event)">
+                                    <div class="input-group mb-3">
+                                        <input type="text" id="input" onkeyup="typingFunction()" class="form-control" placeholder="Escribe un mensaje...">
+                                        <button type="submit" class="btn btn-primary" id="send">enviar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+
+      //Se require nombre de usuario para ingresar al chat
+      const username = prompt("Ingrese su nombre de usuario");
+
+      //Si no se ingresa nombre de usuario, no se permite el ingreso
+      if (!username) {
+        alert("No puedes ingresar sin un nombre de usuario");
+      } else {
+        //Si ingresa el usuario, se renderiza el chat y se obtiene el historial de mensajes.
+        document.getElementById("content").innerHTML = contenido;
+
+        //fetch para obtener los mensajes
+        //EL LINK DEBE SER O DEVTUNNELS O LOCALHOST!!!
+        fetch("https://8t6kxptq-3000.brs.devtunnels.ms/historial")
+          .then((res) => res.json())
+          .then((data) => {
+            //se toma el div del chat para renderizar los mensajes.
+            const mensajes = document.getElementById("chat");
+
+            //Se recorre el array de mensajes para renderizarlos
+            data.forEach((msg) => {
+              //Se pregunta si el username del mensaje coincide con el ingresado
+              if (msg.username === username) {
+                //En caso de que coincida se renderiza el mensaje a la derecha
+                mensajes.innerHTML += `<div id="user">${msg.username}: ${msg.msg}</div>`;
+              } else {
+                //En caso de que no coincida se renderiza el mensaje a la izquierda
+                mensajes.innerHTML += `<div id="other">${msg.username}: ${msg.msg}</div>`;
+              }
+            });
+
+            //Se hace scroll automatico al final del chat
+            mensajes.scrollTop = mensajes.scrollHeight;
+          });
+      }
+
+      //Se crea un timer para el evento typing.
+      let timer = null;
+
+      //Se crea una variable para saber si se esta escribiendo o no.
+      let typing = false;
+
+      //Funcion para saber si se esta escribiendo o no.
+      const typingFunction = () => {
+        //Se pregunta si ya se esta tipeando para no volver a emitir el evento.
+        if (!typing) {
+          //Si no se esta tipeando se emite el evento typing.
+          typing = true;
+          socket.emit("typing", { username });
+        }
+
+        //Si se esta tipeando se limpia el timer y se vuelve a crear.
+        //ni idea como funciona lo siguiente pero funciona
+        clearTimeout(timer);
+
+        //Se crea un timer para saber cuando se deja de escribir.
+        timer = setTimeout(() => {
+          //Se cambia el estado de typing a false y se emite el evento stopTyping.
+          typing = false;
+          socket.emit("stopTyping");
+        }, 600);
+      };
+
+      //Se escucha el evento msg para recibir los mensajes y renderizarlos
+      socket.on("msg", (data) => {
+        const mensajes = document.getElementById("chat");
+        mensajes.innerHTML += `<div id="other">${data.username}: ${data.msg}</div>`;
+        mensajes.scrollTop = mensajes.scrollHeight;
+      });
+
+      //Se escucha el evento typing para saber quien esta escribiendo.
+      socket.on("typing", (data) => {
+        document.getElementById(
+          "typingUser"
+        ).innerText = `${data.username} esta escribiendo...`;
+      });
+
+      //Se escucha el evento stopTyping para saber cuando se dejo de escribir
+      socket.on("stopTyping", () => {
+        document.getElementById("typingUser").innerText = ``;
+      });
+
+      //Funcion para emitir los mensajes al presionar enter o el boton.
+      const sendMessage = (e) => {
+        e.preventDefault();
+        const mensajes = document.getElementById("chat");
+        const mensaje = document.getElementById("input");
+
+        //Si no hay mensaje no se envia nada.
+        if (!mensaje.value) return;
+
+        //Se emite el evento msg con el username y el mensaje.
+        socket.emit("msg", { username, msg: mensaje.value });
+
+        //Se renderiza el mensaje enviado.
+        mensajes.innerHTML += `<div id="user">${username}: ${mensaje.value}</div>`;
+
+        //Se hace scroll automatico al final del chat.
+        mensajes.scrollTop = mensajes.scrollHeight;
+
+        //Se limpia el input.
+        mensaje.value = "";
+      };
+    </script>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+      crossorigin="anonymous"
+    ></script>
+  </body>
+</html>
